@@ -159,7 +159,7 @@ class Tooltip extends Component {
   componentWillUnmount() {
     Dimensions.removeEventListener('change', this.updateWindowDims);
     if (this.interactionPromise) {
-      this.interactionPromise.cancel();
+     this.interactionPromise.cancel();
     }
   }
 
@@ -357,18 +357,15 @@ class Tooltip extends Component {
         <View
           onTouchEnd={onTouchEnd}
           pointerEvents={this.props.allowChildInteraction ? 'box-none' : 'none'}
-          style={[
-            {
-              position: 'absolute',
-              height,
-              width,
-              top: y,
-              left: x,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            this.props.childrenWrapperStyle,
-          ]}
+          style={{
+            position: 'absolute',
+            height,
+            width,
+            top: y,
+            left: x,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
           {this.props.children}
         </View>
