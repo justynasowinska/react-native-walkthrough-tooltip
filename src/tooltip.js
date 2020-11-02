@@ -1,12 +1,12 @@
-import React, { Component } from 'react';
+import React, { Component, isValidElement } from 'react';
 import PropTypes from 'prop-types';
 import {
   Dimensions,
   InteractionManager,
-  Modal,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Modal from 'react-native-modal';
 import rfcIsEqual from 'react-fast-compare';
 import {
   Point,
@@ -32,10 +32,10 @@ const DEFAULT_DISPLAY_INSETS = {
   right: 24,
 };
 
-const computeDisplayInsets = (insetsFromProps) =>
+const computeDisplayInsets = insetsFromProps =>
   Object.assign({}, DEFAULT_DISPLAY_INSETS, insetsFromProps);
 
-const invertPlacement = (placement) => {
+const invertPlacement = placement => {
   switch (placement) {
     case 'top':
       return 'bottom';
@@ -133,6 +133,7 @@ class Tooltip extends Component {
           : props.placement,
       measurementsFinished: false,
       windowDims: Dimensions.get('window'),
+      tooltipVisible: false,
     };
   }
 
@@ -195,7 +196,7 @@ class Tooltip extends Component {
     return null;
   }
 
-  updateWindowDims = (dims) => {
+  updateWindowDims = dims => {
     this.setState(
       {
         windowDims: dims.window,
@@ -224,7 +225,7 @@ class Tooltip extends Component {
     );
   };
 
-  measureContent = (e) => {
+  measureContent = e => {
     const { width, height } = e.nativeEvent.layout;
     const contentSize = new Size(width, height);
     this.setState({ contentSize }, () => {
@@ -232,7 +233,7 @@ class Tooltip extends Component {
     });
   };
 
-  onChildMeasurementComplete = (rect) => {
+  onChildMeasurementComplete = rect => {
     this.setState(
       {
         childRect: rect,
@@ -259,7 +260,7 @@ class Tooltip extends Component {
             (x, y, width, height, pageX, pageY) => {
               const childRect = new Rect(pageX, pageY, width, height);
               if (
-                Object.values(childRect).every((value) => value !== undefined)
+                Object.values(childRect).every(value => value !== undefined)
               ) {
                 this.onChildMeasurementComplete(childRect);
               } else {
@@ -345,12 +346,19 @@ class Tooltip extends Component {
 
   renderChildInTooltip = () => {
     const { height, width, x, y } = this.state.childRect;
+    const {
+      childrenWrapperBorderWidth,
+      childrenWrapperBorderRadius,
+      childrenWrapperBorderColor,
+    } = this.props;
 
     const onTouchEnd = () => {
       if (this.props.closeOnChildInteraction) {
         this.props.onClose();
       }
     };
+
+    const additionalChildrenWrapperBorder = childrenWrapperBorderWidth || 0;
 
     return (
       <TooltipChildrenContext.Provider value={{ tooltipDuplicate: true }}>
@@ -360,14 +368,20 @@ class Tooltip extends Component {
           style={[
             {
               position: 'absolute',
-              height,
-              width,
-              top: y,
-              left: x,
+              height: height + additionalChildrenWrapperBorder * 2,
+              width: width + additionalChildrenWrapperBorder * 2,
+              top: y - additionalChildrenWrapperBorder,
+              left: x - additionalChildrenWrapperBorder,
               alignItems: 'center',
               justifyContent: 'center',
             },
-            this.props.childrenWrapperStyle,
+            this.state.tooltipVisible
+              ? {
+                  borderWidth: additionalChildrenWrapperBorder,
+                  borderRadius: childrenWrapperBorderRadius || 0,
+                  borderColor: childrenWrapperBorderColor || 'transparent',
+                }
+              : undefined,
           ]}
         >
           {this.props.children}
@@ -376,7 +390,25 @@ class Tooltip extends Component {
     );
   };
 
+  renderArrowComponent = (generatedStyles: any) => {
+    const { customArrowComponent } = this.props;
+
+    if (customArrowComponent && isValidElement(customArrowComponent)) {
+      return (
+        <View style={generatedStyles.arrowStyle}>{customArrowComponent}</View>
+      );
+    }
+
+    return <View style={generatedStyles.arrowStyle} />;
+  };
+
   renderContentForTooltip = () => {
+    const customArrowComponent =
+      this.props.customArrowComponent &&
+      isValidElement(this.props.customArrowComponent)
+        ? this.props.customArrowComponent
+        : undefined;
+
     const generatedStyles = styleGenerator({
       adjustedContentSize: this.state.adjustedContentSize,
       anchorPoint: this.state.anchorPoint,
@@ -387,6 +419,7 @@ class Tooltip extends Component {
       placement: this.state.placement,
       tooltipOrigin: this.state.tooltipOrigin,
       topAdjustment: this.props.topAdjustment,
+      customArrowComponent,
     });
 
     const hasChildren = React.Children.count(this.props.children) > 0;
@@ -403,20 +436,18 @@ class Tooltip extends Component {
         accessible={this.props.accessible}
       >
         <View style={generatedStyles.containerStyle}>
-          <View style={[generatedStyles.backgroundStyle]}>
-            <View style={generatedStyles.tooltipStyle}>
-              {hasChildren ? <View style={generatedStyles.arrowStyle} /> : null}
-              <View
-                onLayout={this.measureContent}
-                style={generatedStyles.contentStyle}
+          <View style={generatedStyles.tooltipStyle}>
+            {hasChildren ? this.renderArrowComponent(generatedStyles) : null}
+            <View
+              onLayout={this.measureContent}
+              style={generatedStyles.contentStyle}
+            >
+              <TouchableWithoutFeedback
+                onPress={onPressContent}
+                accessible={this.props.accessible}
               >
-                <TouchableWithoutFeedback
-                  onPress={onPressContent}
-                  accessible={this.props.accessible}
-                >
-                  {this.props.content}
-                </TouchableWithoutFeedback>
-              </View>
+                {this.props.content}
+              </TouchableWithoutFeedback>
             </View>
           </View>
           {hasChildren && this.props.showChildInTooltip
@@ -427,8 +458,26 @@ class Tooltip extends Component {
     );
   };
 
+  onModalShow = () => this.setState({ tooltipVisible: true });
+  onModalWillHide = () => this.setState({ tooltipVisible: false });
+
+  onModalHide = () => {
+    if (this.props.onModalHide) {
+      this.props.onModalHide();
+    }
+  };
+
   render() {
-    const { children, isVisible, useReactNativeModal } = this.props;
+    const {
+      children,
+      isVisible,
+      useReactNativeModal,
+      backgroundColor,
+      modalAnimationIn,
+      modalAnimationOut,
+      modalAnimationInTiming,
+      modalAnimationOutTiming,
+    } = this.props;
 
     const hasChildren = React.Children.count(children) > 0;
     const showTooltip = isVisible && !this.state.waitingForInteractions;
@@ -437,9 +486,19 @@ class Tooltip extends Component {
       <React.Fragment>
         {useReactNativeModal ? (
           <Modal
-            transparent
-            visible={showTooltip}
-            onRequestClose={this.props.onClose}
+            animationIn={modalAnimationIn}
+            animationInTiming={modalAnimationInTiming}
+            animationOut={modalAnimationOut}
+            animationOutTiming={modalAnimationOutTiming}
+            style={{ margin: 0 }}
+            coverScreen={true}
+            isVisible={showTooltip}
+            onBackButtonPress={this.props.onClose}
+            onBackdropPress={this.props.onClose}
+            onModalShow={this.onModalShow}
+            onModalWillHide={this.onModalWillHide}
+            onModalHide={this.onModalHide}
+            backdropColor={backgroundColor}
             supportedOrientations={this.props.supportedOrientations}
           >
             {this.renderContentForTooltip()}
