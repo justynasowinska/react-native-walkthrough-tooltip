@@ -36,6 +36,9 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
     borderLeftColor: 'transparent',
   },
+  customArrow: {
+    position: 'absolute',
+  },
 });
 
 const arrowRotationForPlacement = placement => {
@@ -56,6 +59,7 @@ const arrowPlacementStyles = ({
   arrowSize,
   placement,
   tooltipOrigin,
+  customArrowComponent,
 }) => {
   // Create the arrow from a rectangle with the appropriate borderXWidth set
   // A rotation is then applied dependending on the placement
@@ -72,9 +76,21 @@ const arrowPlacementStyles = ({
     marginLeft = arrowSize.height;
   }
 
+  const left = anchorPoint.x - tooltipOrigin.x - (width / 2 - marginLeft);
+  const top = anchorPoint.y - tooltipOrigin.y - (height / 2 - marginTop);
+
+  if (customArrowComponent) {
+    return {
+      left,
+      top,
+      width,
+      height,
+    };
+  }
+
   return {
-    left: anchorPoint.x - tooltipOrigin.x - (width / 2 - marginLeft),
-    top: anchorPoint.y - tooltipOrigin.y - (height / 2 - marginTop),
+    left,
+    top,
     width,
     height,
     borderTopWidth: height / 2,
@@ -138,6 +154,7 @@ const styleGenerator = styleGeneratorProps => {
     ownProps,
     placement,
     topAdjustment,
+    customArrowComponent,
   } = styleGeneratorProps;
 
   const { height, width } = adjustedContentSize;
@@ -153,26 +170,25 @@ const styleGenerator = styleGeneratorProps => {
   const contentBackgroundColor = StyleSheet.flatten(contentStyle)
     .backgroundColor;
 
-  const arrowStyle = [
+  const defaultArrowStyle = [
     styles.arrow,
     arrowPlacementStyles(styleGeneratorProps),
     { borderTopColor: contentBackgroundColor },
     ownProps.arrowStyle,
   ];
 
+  const customArrowComponentStyle = [
+    styles.customArrow,
+    arrowPlacementStyles(styleGeneratorProps),
+    ownProps.arrowStyle,
+  ];
+
+  const arrowStyle = customArrowComponent
+    ? customArrowComponentStyle
+    : defaultArrowStyle;
+
   return {
     arrowStyle: [...arrowStyle, getArrowRotation(arrowStyle, placement)],
-    backgroundStyle: [
-      styles.background,
-      ownProps.backgroundStyle,
-      {
-        paddingTop: displayInsets.top,
-        paddingLeft: displayInsets.left,
-        paddingRight: displayInsets.right,
-        paddingBottom: displayInsets.bottom,
-        backgroundColor,
-      },
-    ],
     containerStyle: [
       styles.container,
       StyleSheet.compose(

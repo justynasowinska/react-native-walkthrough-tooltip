@@ -41,9 +41,6 @@ declare module 'react-native-walkthrough-tooltip' {
 
     // Styles the tooltip that wraps the arrow and content elements
     tooltipStyle?: StyleProp<ViewStyle>;
-
-    // Styles the View element that wraps the children to clone it
-    childrenWrapperStyle?: StyleProp<ViewStyle>;
   }
 
   export interface TooltipProps extends Partial<TooltipStyleProps> {
@@ -76,7 +73,14 @@ declare module 'react-native-walkthrough-tooltip' {
     isVisible?: boolean;
 
     // Callback fired when the user taps the tooltip background overlay
-    onClose?: (event: GestureResponderEvent) => void;
+    onClose?: () => void;
+
+    onModalHide?: () => void;
+
+    modalAnimationIn?: ModalProps["animationIn"];
+    modalAnimationOut?: ModalProps["animationOut"];
+    modalAnimationInTiming?: ModalProps["animationInTiming"];
+    modalAnimationOutTiming?: ModalProps["animationOutTiming"];
 
     /**
      * Where to position the tooltip - options: top, bottom, left, right, center.
@@ -123,6 +127,16 @@ declare module 'react-native-walkthrough-tooltip' {
      *Set this to false if you want to override the default accessible on the root TouchableWithoutFeedback
      */
     accessible?: boolean;
+
+    customArrowComponent?: React.ReactNode;
+
+    /**
+     * Props to add border for childen wrapper when tooltip is visible
+     */
+
+    childrenWrapperBorderWidth?: number;
+    childrenWrapperBorderRadius?: number;
+    childrenWrapperBorderColor?: string;
   }
 
   /**
